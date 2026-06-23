@@ -1,5 +1,5 @@
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUp, ArrowUpRight, ChevronDown } from 'lucide-react';
 import HeroDay from './HeroDay';
 import HeroDusk from './HeroDusk';
 import HeroFinal from './HeroFinal';
@@ -15,11 +15,24 @@ type ScrollytellingHeroProps = {
   onProgressChange: (progress: number) => void;
 };
 
+const MOBILE_SLIDE_PROGRESS = [0, 0.42, 0.88];
+const MOBILE_SNAP_DELAY = 140;
+
 function scrollToRequest() {
   document.getElementById('request')?.scrollIntoView({ behavior: 'smooth' });
 }
 
-function useNativeScrollProgress(
+function interpolateMobileProgress(slidePosition: number) {
+  const clamped = Math.min(2, Math.max(0, slidePosition));
+  const index = Math.min(1, Math.floor(clamped));
+  const local = clamped - index;
+  const from = MOBILE_SLIDE_PROGRESS[index];
+  const to = MOBILE_SLIDE_PROGRESS[index + 1];
+
+  return from + (to - from) * local;
+}
+
+function useMobileSlideProgress(
   wrapperRef: RefObject<HTMLElement | null>,
   videoRef: RefObject<HTMLVideoElement | null>,
   disabled: boolean,
@@ -27,7 +40,52 @@ function useNativeScrollProgress(
 ) {
   const progressRef = useRef(0);
   const lastSeekRef = useRef(0);
+  const snapTimerRef = useRef<number | null>(null);
+  const isSnappingRef = useRef(false);
   const [progress, setProgress] = useState(0);
+  const [slideIndex, setSlideIndex] = useState(0);
+
+  const scrollToSlide = useCallback((targetIndex: number) => {
+    const wrapper = wrapperRef.current;
+
+    if (!wrapper) {
+      return;
+    }
+
+    if (targetIndex >= MOBILE_SLIDE_PROGRESS.length) {
+      document.getElementById('request')?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
+    const pageTop = window.scrollY + wrapper.getBoundingClientRect().top;
+
+    isSnappingRef.current = true;
+    window.scrollTo({
+      top: pageTop + window.innerHeight * targetIndex,
+      behavior: 'smooth',
+    });
+
+    window.setTimeout(() => {
+      isSnappingRef.current = false;
+    }, 520);
+  }, [wrapperRef]);
+
+  const snapToNearest = useCallback(() => {
+    const wrapper = wrapperRef.current;
+
+    if (!wrapper || isSnappingRef.current) {
+      return;
+    }
+
+    const rect = wrapper.getBoundingClientRect();
+
+    if (rect.top > 0 || rect.bottom < window.innerHeight) {
+      return;
+    }
+
+    const slidePosition = Math.min(2, Math.max(0, -rect.top / window.innerHeight));
+    scrollToSlide(Math.round(slidePosition));
+  }, [scrollToSlide, wrapperRef]);
 
   useEffect(() => {
     if (disabled) {
@@ -42,15 +100,15 @@ function useNativeScrollProgress(
       if (wrapper) {
         const video = videoRef.current;
         const rect = wrapper.getBoundingClientRect();
-        const scrollable = rect.height - window.innerHeight;
-        const rawProgress = scrollable > 0 ? -rect.top / scrollable : 0;
-        const nextProgress = Math.min(1, Math.max(0, rawProgress));
+        const slidePosition = Math.min(2, Math.max(0, -rect.top / window.innerHeight));
+        const nextProgress = interpolateMobileProgress(slidePosition);
         const rounded = Math.round(nextProgress * 1000) / 1000;
         const now = window.performance.now();
 
         if (rounded !== progressRef.current) {
           progressRef.current = rounded;
           setProgress(rounded);
+          setSlideIndex(Math.round(slidePosition));
           onProgressChange(rounded);
         }
 
@@ -71,12 +129,30 @@ function useNativeScrollProgress(
       frameId = window.requestAnimationFrame(tick);
     };
 
+    const queueSnap = () => {
+      if (snapTimerRef.current) {
+        window.clearTimeout(snapTimerRef.current);
+      }
+
+      snapTimerRef.current = window.setTimeout(snapToNearest, MOBILE_SNAP_DELAY);
+    };
+
     frameId = window.requestAnimationFrame(tick);
+    window.addEventListener('scroll', queueSnap, { passive: true });
+    window.addEventListener('touchend', snapToNearest, { passive: true });
 
-    return () => window.cancelAnimationFrame(frameId);
-  }, [disabled, onProgressChange, videoRef, wrapperRef]);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener('scroll', queueSnap);
+      window.removeEventListener('touchend', snapToNearest);
 
-  return progress;
+      if (snapTimerRef.current) {
+        window.clearTimeout(snapTimerRef.current);
+      }
+    };
+  }, [disabled, onProgressChange, snapToNearest, videoRef, wrapperRef]);
+
+  return { progress, slideIndex, scrollToSlide };
 }
 
 function MobileScrollytellingHero({
@@ -86,7 +162,7 @@ function MobileScrollytellingHero({
   const wrapperRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoReady, setVideoReady] = useState(false);
-  const progress = useNativeScrollProgress(
+  const { progress, slideIndex, scrollToSlide } = useMobileSlideProgress(
     wrapperRef,
     videoRef,
     reducedMotion,
@@ -99,7 +175,7 @@ function MobileScrollytellingHero({
     <section
       ref={wrapperRef}
       data-testid="hero-scene"
-      className="relative h-[520vh] bg-[#05080D]"
+      className="relative h-[300dvh] bg-[#05080D]"
       aria-label="Сцена ORBIT House"
     >
       <div className="sticky top-0 h-[100dvh] overflow-hidden bg-black">
@@ -127,6 +203,29 @@ function MobileScrollytellingHero({
         <HeroDusk progress={progress} />
         <HeroFinal progress={progress} />
         <VideoLoader ready={videoReady} />
+
+        <div className="pointer-events-auto absolute right-5 top-1/2 z-[70] flex -translate-y-1/2 flex-col gap-2">
+          <button
+            type="button"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/40 text-white shadow-[0_18px_45px_-24px_rgba(0,0,0,0.85)] backdrop-blur-md transition-colors active:bg-white/15"
+            aria-label="Предыдущий экран"
+            onClick={() => scrollToSlide(Math.max(0, slideIndex - 1))}
+          >
+            <ArrowUp size={18} />
+          </button>
+          <button
+            type="button"
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-[#D89A52] text-black shadow-[0_18px_45px_-24px_rgba(0,0,0,0.85)] transition-colors active:bg-[#C8873E]"
+            aria-label={
+              slideIndex >= MOBILE_SLIDE_PROGRESS.length - 1
+                ? 'Перейти к форме заявки'
+                : 'Следующий экран'
+            }
+            onClick={() => scrollToSlide(slideIndex + 1)}
+          >
+            <ChevronDown size={21} />
+          </button>
+        </div>
       </div>
     </section>
   );
