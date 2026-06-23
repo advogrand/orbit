@@ -80,6 +80,65 @@ input[type='date'] {
   color-scheme: dark;
 }
 
+@media (max-width: 370px) {
+  .request-section__inner {
+    display: block;
+    width: calc(100vw - 32px);
+    max-width: calc(100vw - 32px);
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .request-section__inner > div + div {
+    margin-top: 32px;
+  }
+
+  .contact-form {
+    gap: 1rem;
+  }
+
+  .contact-form input:not([type='checkbox']),
+  .contact-form select,
+  .contact-form textarea {
+    min-height: 48px;
+    border-radius: 12px;
+    padding-left: 14px;
+    padding-right: 14px;
+    font-size: 16px;
+  }
+
+  .contact-form textarea {
+    min-height: 118px;
+  }
+
+  .contact-form label {
+    min-width: 0;
+  }
+
+  .contact-form__consent {
+    gap: 10px;
+    font-size: 13px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  .contact-form__consent input {
+    flex: 0 0 20px;
+  }
+
+  .contact-form button[type='submit'] {
+    width: 100%;
+    padding-left: 18px;
+    padding-right: 18px;
+    font-size: 14px;
+  }
+
+  .contact-form__note {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

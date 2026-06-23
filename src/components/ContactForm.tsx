@@ -157,7 +157,7 @@ export default function ContactForm() {
   }
 
   return (
-    <form className="grid w-full min-w-0 gap-5" onSubmit={submit} noValidate aria-live="polite">
+    <form className="contact-form grid w-full min-w-0 gap-5" onSubmit={submit} noValidate aria-live="polite">
       <div className="grid min-w-0 gap-5 md:grid-cols-2">
         <div className="min-w-0">
           <label className={labelClass} htmlFor="name">
@@ -290,7 +290,7 @@ export default function ContactForm() {
       </div>
 
       <div>
-        <label className="flex cursor-pointer items-start gap-3 text-sm leading-relaxed text-white/70">
+        <label className="contact-form__consent flex cursor-pointer items-start gap-3 text-sm leading-relaxed text-white/70">
           <input
             type="checkbox"
             className="mt-1 h-5 w-5 rounded border-white/20 bg-white/[0.035] accent-[#D89A52]"
@@ -322,7 +322,7 @@ export default function ContactForm() {
         >
           {status === 'loading' ? 'Отправляем…' : 'Отправить заявку'}
         </button>
-        <p className="text-sm text-white/45">
+        <p className="contact-form__note text-sm text-white/45">
           Мы ответим в течение одного рабочего дня.
         </p>
       </div>

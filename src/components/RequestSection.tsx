@@ -14,7 +14,7 @@ export default function RequestSection({ id }: RequestSectionProps) {
       id={id}
       className="request-section relative min-h-screen w-full overflow-hidden bg-[#05080D] text-white"
     >
-      <div className="relative z-10 mx-auto grid w-full max-w-[1440px] grid-cols-12 gap-8 px-6 py-24 md:px-10 md:py-32 lg:gap-16">
+      <div className="request-section__inner relative z-10 mx-auto grid w-full max-w-[1440px] grid-cols-12 gap-8 px-6 py-24 md:px-10 md:py-32 lg:gap-16">
         <div className="col-span-12 min-w-0 lg:col-span-5">
           <p className="text-[10px] uppercase tracking-[0.25em] text-[#D89A52]">
             Частное проживание
