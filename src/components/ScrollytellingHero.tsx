@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowUpRight } from 'lucide-react';
 import HeroDay from './HeroDay';
 import HeroDusk from './HeroDusk';
@@ -8,6 +8,7 @@ import { asset } from '../lib/assets';
 import { useLenis } from '../hooks/useLenis';
 import { useTouchOptimized } from '../hooks/useTouchOptimized';
 import { useVideoScrub } from '../hooks/useVideoScrub';
+import { FALLBACK_DURATION, progressToTime } from '../lib/videoTimeline';
 
 type ScrollytellingHeroProps = {
   reducedMotion: boolean;
@@ -18,6 +19,119 @@ function scrollToRequest() {
   document.getElementById('request')?.scrollIntoView({ behavior: 'smooth' });
 }
 
+function useNativeScrollProgress(
+  wrapperRef: RefObject<HTMLElement | null>,
+  videoRef: RefObject<HTMLVideoElement | null>,
+  disabled: boolean,
+  onProgressChange: (progress: number) => void,
+) {
+  const progressRef = useRef(0);
+  const lastSeekRef = useRef(0);
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    if (disabled) {
+      return;
+    }
+
+    let frameId = 0;
+
+    const tick = () => {
+      const wrapper = wrapperRef.current;
+
+      if (wrapper) {
+        const video = videoRef.current;
+        const rect = wrapper.getBoundingClientRect();
+        const scrollable = rect.height - window.innerHeight;
+        const rawProgress = scrollable > 0 ? -rect.top / scrollable : 0;
+        const nextProgress = Math.min(1, Math.max(0, rawProgress));
+        const rounded = Math.round(nextProgress * 1000) / 1000;
+        const now = window.performance.now();
+
+        if (rounded !== progressRef.current) {
+          progressRef.current = rounded;
+          setProgress(rounded);
+          onProgressChange(rounded);
+        }
+
+        if (video && now - lastSeekRef.current > 45) {
+          const duration =
+            Number.isFinite(video.duration) && video.duration > 0
+              ? video.duration
+              : FALLBACK_DURATION;
+          const target = progressToTime(nextProgress, duration);
+
+          if (Math.abs(video.currentTime - target) > 0.045) {
+            lastSeekRef.current = now;
+            video.currentTime = target;
+          }
+        }
+      }
+
+      frameId = window.requestAnimationFrame(tick);
+    };
+
+    frameId = window.requestAnimationFrame(tick);
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [disabled, onProgressChange, videoRef, wrapperRef]);
+
+  return progress;
+}
+
+function MobileScrollytellingHero({
+  reducedMotion,
+  onProgressChange,
+}: ScrollytellingHeroProps) {
+  const wrapperRef = useRef<HTMLElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoReady, setVideoReady] = useState(false);
+  const progress = useNativeScrollProgress(
+    wrapperRef,
+    videoRef,
+    reducedMotion,
+    onProgressChange,
+  );
+
+  const markReady = useCallback(() => setVideoReady(true), []);
+
+  return (
+    <section
+      ref={wrapperRef}
+      data-testid="hero-scene"
+      className="relative h-[520vh] bg-[#05080D]"
+      aria-label="Сцена ORBIT House"
+    >
+      <div className="sticky top-0 h-[100dvh] overflow-hidden bg-black">
+        <video
+          ref={videoRef}
+          src={asset('orbit-scrub-mobile.mp4')}
+          poster={asset('poster-day.jpg')}
+          muted
+          playsInline
+          preload="auto"
+          className="absolute inset-0 h-full w-full object-cover"
+          style={{ objectPosition: `50% ${50 + Math.max(0, progress - 0.45) * 4}%` }}
+          onLoadedMetadata={(event) => {
+            event.currentTarget.pause();
+            event.currentTarget.currentTime = 0;
+            markReady();
+          }}
+          onLoadedData={markReady}
+          onCanPlay={markReady}
+        />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,transparent_0,rgba(0,0,0,0.08)_58%,rgba(0,0,0,0.38)_100%)]" />
+        <div className="film-grain" aria-hidden="true" />
+
+        <HeroDay progress={progress} />
+        <HeroDusk progress={progress} />
+        <HeroFinal progress={progress} />
+        <VideoLoader ready={videoReady} />
+      </div>
+    </section>
+  );
+}
+
 export default function ScrollytellingHero({
   reducedMotion,
   onProgressChange,
@@ -25,7 +139,7 @@ export default function ScrollytellingHero({
   const wrapperRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const touchOptimized = useTouchOptimized();
-  const lenisRef = useLenis(reducedMotion || touchOptimized);
+  const lenisRef = useLenis(reducedMotion);
   const [videoReady, setVideoReady] = useState(false);
 
   const progress = useVideoScrub({
@@ -33,7 +147,6 @@ export default function ScrollytellingHero({
     videoRef,
     lenisRef,
     disabled: reducedMotion,
-    touchOptimized,
     onProgressChange,
   });
 
@@ -55,6 +168,15 @@ export default function ScrollytellingHero({
   }, [onProgressChange, reducedMotion]);
 
   const objectY = 50 + Math.max(0, progress - 0.45) * 4;
+
+  if (touchOptimized && !reducedMotion) {
+    return (
+      <MobileScrollytellingHero
+        reducedMotion={reducedMotion}
+        onProgressChange={onProgressChange}
+      />
+    );
+  }
 
   if (reducedMotion) {
     return (
@@ -101,6 +223,7 @@ export default function ScrollytellingHero({
       <div className="sticky top-0 h-[100dvh] overflow-hidden bg-black">
         <video
           ref={videoRef}
+          src={asset('orbit-scrub.mp4')}
           poster={asset('poster-day.jpg')}
           muted
           playsInline
@@ -108,22 +231,13 @@ export default function ScrollytellingHero({
           className="absolute inset-0 h-full w-full object-cover"
           style={{ objectPosition: `50% ${objectY}%` }}
           onLoadedMetadata={(event) => {
-            if (!touchOptimized) {
-              event.currentTarget.pause();
-              event.currentTarget.currentTime = 0;
-            }
+            event.currentTarget.pause();
+            event.currentTarget.currentTime = 0;
             markReady();
           }}
           onLoadedData={markReady}
           onCanPlayThrough={markReady}
-        >
-          <source
-            src={asset('orbit-scrub-mobile.mp4')}
-            type="video/mp4"
-            media="(max-width: 900px), (hover: none), (pointer: coarse)"
-          />
-          <source src={asset('orbit-scrub.mp4')} type="video/mp4" />
-        </video>
+        />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,transparent_0,rgba(0,0,0,0.08)_58%,rgba(0,0,0,0.38)_100%)]" />
         <div className="film-grain" aria-hidden="true" />
 

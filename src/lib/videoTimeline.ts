@@ -2,6 +2,10 @@ export const CLIP_1_END = 5;
 export const CLIP_2_END = 10;
 export const FALLBACK_DURATION = 15.21;
 
+function safeEnd(duration: number) {
+  return Math.max(CLIP_2_END, duration - 0.4);
+}
+
 export function progressToTime(progress: number, duration: number) {
   if (progress <= 0.12) {
     return 0;
@@ -27,8 +31,9 @@ export function progressToTime(progress: number, duration: number) {
 
   if (progress < 0.88) {
     const local = (progress - 0.66) / 0.22;
-    return CLIP_2_END + local * (duration - CLIP_2_END);
+    const end = safeEnd(duration);
+    return CLIP_2_END + local * (end - CLIP_2_END);
   }
 
-  return duration;
+  return safeEnd(duration);
 }
