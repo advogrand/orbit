@@ -8,7 +8,7 @@ import { asset } from '../lib/assets';
 import { useLenis } from '../hooks/useLenis';
 import { useTouchOptimized } from '../hooks/useTouchOptimized';
 import { useVideoScrub } from '../hooks/useVideoScrub';
-import { FALLBACK_DURATION, progressToTime } from '../lib/videoTimeline';
+import { CLIP_1_END, FALLBACK_DURATION, progressToTime } from '../lib/videoTimeline';
 
 type ScrollytellingHeroProps = {
   reducedMotion: boolean;
@@ -32,6 +32,14 @@ function interpolateMobileProgress(slidePosition: number) {
   return from + (to - from) * local;
 }
 
+function mobileProgressToTime(progress: number, duration: number) {
+  if (progress < 0.34) {
+    return (Math.max(0, progress) / 0.34) * CLIP_1_END;
+  }
+
+  return progressToTime(progress, duration);
+}
+
 function useMobileSlideProgress(
   wrapperRef: RefObject<HTMLElement | null>,
   videoRef: RefObject<HTMLVideoElement | null>,
@@ -41,9 +49,38 @@ function useMobileSlideProgress(
   const progressRef = useRef(0);
   const lastSeekRef = useRef(0);
   const snapTimerRef = useRef<number | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
   const isSnappingRef = useRef(false);
   const [progress, setProgress] = useState(0);
   const [slideIndex, setSlideIndex] = useState(0);
+
+  const applyProgress = useCallback((nextProgress: number, forceSeek = false) => {
+    const video = videoRef.current;
+    const rounded = Math.round(nextProgress * 1000) / 1000;
+
+    if (rounded !== progressRef.current) {
+      progressRef.current = rounded;
+      setProgress(rounded);
+      onProgressChange(rounded);
+    }
+
+    if (!video) {
+      return;
+    }
+
+    const now = window.performance.now();
+    const duration =
+      Number.isFinite(video.duration) && video.duration > 0 ? video.duration : FALLBACK_DURATION;
+    const target = mobileProgressToTime(nextProgress, duration);
+
+    if (
+      forceSeek ||
+      (now - lastSeekRef.current > 32 && Math.abs(video.currentTime - target) > 0.035)
+    ) {
+      lastSeekRef.current = now;
+      video.currentTime = target;
+    }
+  }, [onProgressChange, videoRef]);
 
   const scrollToSlide = useCallback((targetIndex: number) => {
     const wrapper = wrapperRef.current;
@@ -57,18 +94,55 @@ function useMobileSlideProgress(
       return;
     }
 
-    const pageTop = window.scrollY + wrapper.getBoundingClientRect().top;
+    if (animationFrameRef.current) {
+      window.cancelAnimationFrame(animationFrameRef.current);
+    }
+
+    const rect = wrapper.getBoundingClientRect();
+    const pageTop = window.scrollY + rect.top;
+    const startScroll = window.scrollY;
+    const targetScroll = pageTop + window.innerHeight * targetIndex;
+    const startSlidePosition = Math.min(2, Math.max(0, -rect.top / window.innerHeight));
+    const startTime = window.performance.now();
+    const durationMs = 1150;
+
+    const easeInOutCubic = (value: number) =>
+      value < 0.5 ? 4 * value * value * value : 1 - Math.pow(-2 * value + 2, 3) / 2;
+
+    if (snapTimerRef.current) {
+      window.clearTimeout(snapTimerRef.current);
+    }
 
     isSnappingRef.current = true;
-    window.scrollTo({
-      top: pageTop + window.innerHeight * targetIndex,
-      behavior: 'smooth',
-    });
 
-    window.setTimeout(() => {
-      isSnappingRef.current = false;
-    }, 520);
-  }, [wrapperRef]);
+    const animate = (now: number) => {
+      const elapsed = Math.min(1, (now - startTime) / durationMs);
+      const eased = easeInOutCubic(elapsed);
+      const nextScroll = startScroll + (targetScroll - startScroll) * eased;
+      const slidePosition =
+        startSlidePosition + (targetIndex - startSlidePosition) * eased;
+      const nextProgress = interpolateMobileProgress(slidePosition);
+
+      window.scrollTo(0, nextScroll);
+      applyProgress(nextProgress);
+      setSlideIndex(Math.round(slidePosition));
+
+      if (elapsed < 1) {
+        animationFrameRef.current = window.requestAnimationFrame(animate);
+        return;
+      }
+
+      window.scrollTo(0, targetScroll);
+      applyProgress(MOBILE_SLIDE_PROGRESS[targetIndex], true);
+      setSlideIndex(targetIndex);
+      animationFrameRef.current = null;
+      window.setTimeout(() => {
+        isSnappingRef.current = false;
+      }, 80);
+    };
+
+    animationFrameRef.current = window.requestAnimationFrame(animate);
+  }, [applyProgress, wrapperRef]);
 
   const snapToNearest = useCallback(() => {
     const wrapper = wrapperRef.current;
@@ -97,7 +171,7 @@ function useMobileSlideProgress(
     const tick = () => {
       const wrapper = wrapperRef.current;
 
-      if (wrapper) {
+      if (wrapper && !isSnappingRef.current) {
         const video = videoRef.current;
         const rect = wrapper.getBoundingClientRect();
         const slidePosition = Math.min(2, Math.max(0, -rect.top / window.innerHeight));
@@ -117,7 +191,7 @@ function useMobileSlideProgress(
             Number.isFinite(video.duration) && video.duration > 0
               ? video.duration
               : FALLBACK_DURATION;
-          const target = progressToTime(nextProgress, duration);
+          const target = mobileProgressToTime(nextProgress, duration);
 
           if (Math.abs(video.currentTime - target) > 0.045) {
             lastSeekRef.current = now;
@@ -148,6 +222,10 @@ function useMobileSlideProgress(
 
       if (snapTimerRef.current) {
         window.clearTimeout(snapTimerRef.current);
+      }
+
+      if (animationFrameRef.current) {
+        window.cancelAnimationFrame(animationFrameRef.current);
       }
     };
   }, [disabled, onProgressChange, snapToNearest, videoRef, wrapperRef]);
