@@ -25,7 +25,7 @@ const initialValues: FormValues = {
 };
 
 const inputClass =
-  'min-h-[52px] w-full rounded-[14px] border border-white/15 bg-white/[0.035] px-4 text-white outline-none transition-colors placeholder:text-white/30 focus:border-[#D89A52] focus:ring-1 focus:ring-[#D89A52]/40';
+  'min-h-[52px] min-w-0 w-full max-w-full rounded-[14px] border border-white/15 bg-white/[0.035] px-4 text-white outline-none transition-colors placeholder:text-white/30 focus:border-[#D89A52] focus:ring-1 focus:ring-[#D89A52]/40';
 
 const labelClass = 'mb-2 block text-[11px] uppercase tracking-[0.18em] text-white/45';
 
@@ -157,9 +157,9 @@ export default function ContactForm() {
   }
 
   return (
-    <form className="grid gap-5" onSubmit={submit} noValidate aria-live="polite">
-      <div className="grid gap-5 md:grid-cols-2">
-        <div>
+    <form className="grid w-full min-w-0 gap-5" onSubmit={submit} noValidate aria-live="polite">
+      <div className="grid min-w-0 gap-5 md:grid-cols-2">
+        <div className="min-w-0">
           <label className={labelClass} htmlFor="name">
             Имя
           </label>
@@ -178,7 +178,7 @@ export default function ContactForm() {
           )}
         </div>
 
-        <div>
+        <div className="min-w-0">
           <label className={labelClass} htmlFor="phone">
             Телефон
           </label>
@@ -198,7 +198,7 @@ export default function ContactForm() {
         </div>
       </div>
 
-      <div>
+      <div className="min-w-0">
         <label className={labelClass} htmlFor="email">
           Электронная почта
         </label>
@@ -218,8 +218,8 @@ export default function ContactForm() {
         )}
       </div>
 
-      <div className="grid gap-5 md:grid-cols-2">
-        <div>
+      <div className="grid min-w-0 gap-5 md:grid-cols-2">
+        <div className="min-w-0">
           <label className={labelClass} htmlFor="checkIn">
             Дата заезда
           </label>
@@ -238,7 +238,7 @@ export default function ContactForm() {
           )}
         </div>
 
-        <div>
+        <div className="min-w-0">
           <label className={labelClass} htmlFor="checkOut">
             Дата выезда
           </label>
@@ -258,7 +258,7 @@ export default function ContactForm() {
         </div>
       </div>
 
-      <div>
+      <div className="min-w-0">
         <label className={labelClass} htmlFor="guests">
           Количество гостей
         </label>
@@ -276,7 +276,7 @@ export default function ContactForm() {
         </select>
       </div>
 
-      <div>
+      <div className="min-w-0">
         <label className={labelClass} htmlFor="comment">
           Комментарий
         </label>

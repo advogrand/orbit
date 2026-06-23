@@ -6,6 +6,7 @@ import HeroFinal from './HeroFinal';
 import VideoLoader from './VideoLoader';
 import { asset } from '../lib/assets';
 import { useLenis } from '../hooks/useLenis';
+import { useTouchOptimized } from '../hooks/useTouchOptimized';
 import { useVideoScrub } from '../hooks/useVideoScrub';
 
 type ScrollytellingHeroProps = {
@@ -23,7 +24,8 @@ export default function ScrollytellingHero({
 }: ScrollytellingHeroProps) {
   const wrapperRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const lenisRef = useLenis(reducedMotion);
+  const touchOptimized = useTouchOptimized();
+  const lenisRef = useLenis(reducedMotion || touchOptimized);
   const [videoReady, setVideoReady] = useState(false);
 
   const progress = useVideoScrub({
@@ -31,6 +33,7 @@ export default function ScrollytellingHero({
     videoRef,
     lenisRef,
     disabled: reducedMotion,
+    touchOptimized,
     onProgressChange,
   });
 
@@ -98,7 +101,6 @@ export default function ScrollytellingHero({
       <div className="sticky top-0 h-[100dvh] overflow-hidden bg-black">
         <video
           ref={videoRef}
-          src={asset('orbit-scrub.mp4')}
           poster={asset('poster-day.jpg')}
           muted
           playsInline
@@ -106,13 +108,22 @@ export default function ScrollytellingHero({
           className="absolute inset-0 h-full w-full object-cover"
           style={{ objectPosition: `50% ${objectY}%` }}
           onLoadedMetadata={(event) => {
-            event.currentTarget.pause();
-            event.currentTarget.currentTime = 0;
+            if (!touchOptimized) {
+              event.currentTarget.pause();
+              event.currentTarget.currentTime = 0;
+            }
             markReady();
           }}
           onLoadedData={markReady}
           onCanPlayThrough={markReady}
-        />
+        >
+          <source
+            src={asset('orbit-scrub-mobile.mp4')}
+            type="video/mp4"
+            media="(max-width: 900px), (hover: none), (pointer: coarse)"
+          />
+          <source src={asset('orbit-scrub.mp4')} type="video/mp4" />
+        </video>
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,transparent_0,rgba(0,0,0,0.08)_58%,rgba(0,0,0,0.38)_100%)]" />
         <div className="film-grain" aria-hidden="true" />
 

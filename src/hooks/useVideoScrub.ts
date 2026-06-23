@@ -7,6 +7,7 @@ type UseVideoScrubOptions = {
   videoRef: RefObject<HTMLVideoElement | null>;
   lenisRef: RefObject<Lenis | null>;
   disabled: boolean;
+  touchOptimized: boolean;
   onProgressChange: (progress: number) => void;
 };
 
@@ -15,9 +16,11 @@ export function useVideoScrub({
   videoRef,
   lenisRef,
   disabled,
+  touchOptimized,
   onProgressChange,
 }: UseVideoScrubOptions) {
   const currentTimeRef = useRef(0);
+  const lastSeekRef = useRef(0);
   const progressRef = useRef(0);
   const [progress, setProgress] = useState(0);
 
@@ -53,21 +56,33 @@ export function useVideoScrub({
             : FALLBACK_DURATION;
 
         if (nextProgress === 0) {
-          if (video.currentTime !== 0) {
+          if (video.currentTime !== 0 && !video.seeking) {
             video.currentTime = 0;
           }
           currentTimeRef.current = 0;
         } else {
           const target = progressToTime(nextProgress, duration);
           const current = currentTimeRef.current;
-          const next = current + (target - current) * 0.1;
+          const now = window.performance.now();
 
-          if (Math.abs(target - current) > 0.0005) {
-            currentTimeRef.current = next;
-            video.currentTime = next;
-          } else if (current !== target) {
-            currentTimeRef.current = target;
-            video.currentTime = target;
+          if (touchOptimized) {
+            const canSeek = now - lastSeekRef.current > 95 && !video.seeking;
+
+            if (canSeek && Math.abs(target - current) > 0.08) {
+              lastSeekRef.current = now;
+              currentTimeRef.current = target;
+              video.currentTime = target;
+            }
+          } else {
+            const next = current + (target - current) * 0.1;
+
+            if (Math.abs(target - current) > 0.0005) {
+              currentTimeRef.current = next;
+              video.currentTime = next;
+            } else if (current !== target) {
+              currentTimeRef.current = target;
+              video.currentTime = target;
+            }
           }
         }
       }
@@ -78,7 +93,14 @@ export function useVideoScrub({
     frameId = window.requestAnimationFrame(tick);
 
     return () => window.cancelAnimationFrame(frameId);
-  }, [disabled, lenisRef, onProgressChange, videoRef, wrapperRef]);
+  }, [
+    disabled,
+    lenisRef,
+    onProgressChange,
+    touchOptimized,
+    videoRef,
+    wrapperRef,
+  ]);
 
   return progress;
 }

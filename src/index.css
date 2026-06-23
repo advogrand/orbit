@@ -9,10 +9,17 @@ html {
   scroll-behavior: auto;
 }
 
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   min-width: 320px;
-  overflow-x: hidden;
   background: #05080d;
   color: #f5f3ee;
   font-family: Inter, system-ui, sans-serif;
