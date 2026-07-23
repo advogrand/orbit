@@ -169,7 +169,10 @@ function MobileScrollytellingHero({
 }: ScrollytellingHeroProps) {
   const wrapperRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const reverseVideoRef = useRef<HTMLVideoElement>(null);
+  const visualTimeRef = useRef(0);
   const [videoReady, setVideoReady] = useState(false);
+  const [reverseActive, setReverseActive] = useState(false);
   const [progress, setProgress] = useState(0);
   const { slideIndex, scrollToSlide } = useMobileSlideProgress(wrapperRef, reducedMotion);
 
@@ -177,8 +180,9 @@ function MobileScrollytellingHero({
 
   useEffect(() => {
     const video = videoRef.current;
+    const reverseVideo = reverseVideoRef.current;
 
-    if (!video || !videoReady) {
+    if (!video || !reverseVideo || !videoReady) {
       return;
     }
 
@@ -188,6 +192,7 @@ function MobileScrollytellingHero({
     const targetTime = [0, CLIP_1_END, endTime][slideIndex];
     const targetProgress = MOBILE_SLIDE_PROGRESS[slideIndex];
     let frameId = 0;
+    let cancelled = false;
 
     const applyProgress = (nextProgress: number) => {
       const rounded = Math.round(nextProgress * 200) / 200;
@@ -195,43 +200,106 @@ function MobileScrollytellingHero({
       onProgressChange(rounded);
     };
 
-    if (targetTime <= video.currentTime + 0.05) {
+    const progressAtTime = (time: number) =>
+      time <= CLIP_1_END
+        ? (time / CLIP_1_END) * MOBILE_SLIDE_PROGRESS[1]
+        : MOBILE_SLIDE_PROGRESS[1] +
+          ((time - CLIP_1_END) / (endTime - CLIP_1_END)) *
+            (MOBILE_SLIDE_PROGRESS[2] - MOBILE_SLIDE_PROGRESS[1]);
+
+    const startTime = visualTimeRef.current;
+    const movingBackward = targetTime < startTime - 0.05;
+
+    video.pause();
+    reverseVideo.pause();
+
+    if (Math.abs(targetTime - startTime) <= 0.05) {
       video.pause();
       video.currentTime = targetTime;
+      visualTimeRef.current = targetTime;
+      setReverseActive(false);
       applyProgress(targetProgress);
       return;
     }
 
+    const finish = () => {
+      video.pause();
+      reverseVideo.pause();
+      video.currentTime = targetTime;
+      visualTimeRef.current = targetTime;
+      setReverseActive(false);
+      applyProgress(targetProgress);
+    };
+
+    if (movingBackward) {
+      const reverseStart = Math.max(0, duration - startTime);
+      const reverseTarget = Math.min(duration, duration - targetTime);
+
+      reverseVideo.playbackRate = 2;
+
+      const updateReverse = () => {
+        const currentTime = Math.max(targetTime, duration - reverseVideo.currentTime);
+        visualTimeRef.current = currentTime;
+        applyProgress(Math.max(targetProgress, progressAtTime(currentTime)));
+
+        if (reverseVideo.currentTime >= reverseTarget - 0.04) {
+          finish();
+          return;
+        }
+
+        frameId = window.requestAnimationFrame(updateReverse);
+      };
+
+      const playReverse = () => {
+        if (cancelled) {
+          return;
+        }
+
+        video.currentTime = targetTime;
+        setReverseActive(true);
+        reverseVideo.play().then(() => {
+          frameId = window.requestAnimationFrame(updateReverse);
+        }).catch(finish);
+      };
+
+      if (Math.abs(reverseVideo.currentTime - reverseStart) < 0.04 && reverseVideo.readyState >= 2) {
+        playReverse();
+      } else {
+        reverseVideo.addEventListener('seeked', playReverse, { once: true });
+        reverseVideo.currentTime = reverseStart;
+      }
+
+      return () => {
+        cancelled = true;
+        reverseVideo.removeEventListener('seeked', playReverse);
+        window.cancelAnimationFrame(frameId);
+        reverseVideo.pause();
+      };
+    }
+
+    setReverseActive(false);
+    video.currentTime = startTime;
     video.playbackRate = 2;
 
-    const update = () => {
-      const nextProgress =
-        video.currentTime <= CLIP_1_END
-          ? (video.currentTime / CLIP_1_END) * MOBILE_SLIDE_PROGRESS[1]
-          : MOBILE_SLIDE_PROGRESS[1] +
-            ((video.currentTime - CLIP_1_END) / (endTime - CLIP_1_END)) *
-              (MOBILE_SLIDE_PROGRESS[2] - MOBILE_SLIDE_PROGRESS[1]);
-
-      applyProgress(Math.min(targetProgress, nextProgress));
+    const updateForward = () => {
+      const currentTime = Math.min(targetTime, video.currentTime);
+      visualTimeRef.current = currentTime;
+      applyProgress(Math.min(targetProgress, progressAtTime(currentTime)));
 
       if (video.currentTime >= targetTime - 0.04) {
-        video.pause();
-        video.currentTime = targetTime;
-        applyProgress(targetProgress);
+        finish();
         return;
       }
 
-      frameId = window.requestAnimationFrame(update);
+      frameId = window.requestAnimationFrame(updateForward);
     };
 
     video.play().then(() => {
-      frameId = window.requestAnimationFrame(update);
-    }).catch(() => {
-      video.currentTime = targetTime;
-      applyProgress(targetProgress);
-    });
+      frameId = window.requestAnimationFrame(updateForward);
+    }).catch(finish);
 
     return () => {
+      cancelled = true;
       window.cancelAnimationFrame(frameId);
       video.pause();
     };
@@ -252,7 +320,7 @@ function MobileScrollytellingHero({
           muted
           playsInline
           preload="auto"
-          className="absolute inset-0 h-full w-full object-cover"
+          className={`absolute inset-0 h-full w-full object-cover ${reverseActive ? 'opacity-0' : 'opacity-100'}`}
           style={{ objectPosition: `50% ${50 + Math.max(0, progress - 0.45) * 4}%` }}
           onLoadedMetadata={(event) => {
             event.currentTarget.pause();
@@ -261,6 +329,16 @@ function MobileScrollytellingHero({
           }}
           onLoadedData={markReady}
           onCanPlay={markReady}
+        />
+        <video
+          ref={reverseVideoRef}
+          src={asset('orbit-scrub-reverse.mp4')}
+          muted
+          playsInline
+          preload="auto"
+          aria-hidden="true"
+          className={`absolute inset-0 h-full w-full object-cover ${reverseActive ? 'opacity-100' : 'opacity-0'}`}
+          style={{ objectPosition: `50% ${50 + Math.max(0, progress - 0.45) * 4}%` }}
         />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,transparent_0,rgba(0,0,0,0.08)_58%,rgba(0,0,0,0.38)_100%)]" />
         <HeroDay progress={progress} mobile />
