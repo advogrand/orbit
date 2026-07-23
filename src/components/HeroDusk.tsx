@@ -2,6 +2,7 @@ import { clamp01, reveal } from '../lib/animation';
 
 type HeroDuskProps = {
   progress: number;
+  linger?: boolean;
 };
 
 const stats = [
@@ -10,9 +11,10 @@ const stats = [
   ['00', 'Источников городской засветки'],
 ];
 
-export default function HeroDusk({ progress }: HeroDuskProps) {
+export default function HeroDusk({ progress, linger = false }: HeroDuskProps) {
   const hpB = clamp01((progress - 0.34) / 0.08);
-  const fadeB = progress < 0.46 ? 1 : 1 - clamp01((progress - 0.46) / 0.06);
+  const fadeStart = linger ? 0.7 : 0.46;
+  const fadeB = progress < fadeStart ? 1 : 1 - clamp01((progress - fadeStart) / 0.08);
 
   return (
     <div
