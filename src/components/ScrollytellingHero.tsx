@@ -241,7 +241,7 @@ function MobileScrollytellingHero({
     <section
       ref={wrapperRef}
       data-testid="hero-scene"
-      className="relative h-[300dvh] bg-[#05080D]"
+      className="relative h-[300dvh] touch-none bg-[#05080D]"
       aria-label="Сцена ORBIT House"
     >
       <div className="sticky top-0 h-[100dvh] overflow-hidden bg-black">

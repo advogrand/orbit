@@ -12,12 +12,12 @@ export default function HeroFinal({ progress }: HeroFinalProps) {
       className="pointer-events-none absolute inset-0 z-50 text-white"
       style={{ opacity: hpD }}
     >
-      <div className="absolute inset-x-0 top-[13%] px-6 text-center md:top-[12%]">
+      <div className="absolute inset-x-0 top-[13%] px-4 text-center md:top-[12%] md:px-6">
         <h2
-          className="mx-auto max-w-4xl text-5xl font-light leading-[0.98] tracking-[-0.045em] drop-shadow-[0_8px_30px_rgba(0,0,0,0.42)] md:text-7xl lg:text-[86px]"
+          className="mx-auto max-w-4xl text-[34px] font-light leading-[1.02] tracking-normal drop-shadow-[0_8px_30px_rgba(0,0,0,0.42)] min-[370px]:text-[40px] md:text-7xl lg:text-[86px]"
           style={reveal(hpD, 0, 0.18, 20, 5)}
         >
-          Место, где видно
+          <span className="block whitespace-nowrap">Место, где видно</span>
           <span className="block font-display italic">ночь</span>
         </h2>
       </div>
