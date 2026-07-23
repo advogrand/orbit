@@ -16,7 +16,7 @@ type ScrollytellingHeroProps = {
 };
 
 const MOBILE_SLIDE_PROGRESS = [0, 0.42, 0.88];
-const MOBILE_SNAP_DELAY = 140;
+const MOBILE_SNAP_DELAY = 180;
 
 function scrollToRequest() {
   document.getElementById('request')?.scrollIntoView({ behavior: 'smooth' });
@@ -75,7 +75,7 @@ function useMobileSlideProgress(
 
     if (
       forceSeek ||
-      (now - lastSeekRef.current > 32 && Math.abs(video.currentTime - target) > 0.035)
+      (now - lastSeekRef.current > 50 && Math.abs(video.currentTime - target) > 0.045)
     ) {
       lastSeekRef.current = now;
       video.currentTime = target;
@@ -104,7 +104,7 @@ function useMobileSlideProgress(
     const targetScroll = pageTop + window.innerHeight * targetIndex;
     const startSlidePosition = Math.min(2, Math.max(0, -rect.top / window.innerHeight));
     const startTime = window.performance.now();
-    const durationMs = 1150;
+    const durationMs = 700;
 
     const easeInOutCubic = (value: number) =>
       value < 0.5 ? 4 * value * value * value : 1 - Math.pow(-2 * value + 2, 3) / 2;
@@ -168,42 +168,28 @@ function useMobileSlideProgress(
 
     let frameId = 0;
 
-    const tick = () => {
+    const update = () => {
+      frameId = 0;
       const wrapper = wrapperRef.current;
 
       if (wrapper && !isSnappingRef.current) {
-        const video = videoRef.current;
         const rect = wrapper.getBoundingClientRect();
         const slidePosition = Math.min(2, Math.max(0, -rect.top / window.innerHeight));
         const nextProgress = interpolateMobileProgress(slidePosition);
-        const rounded = Math.round(nextProgress * 1000) / 1000;
-        const now = window.performance.now();
-
-        if (rounded !== progressRef.current) {
-          progressRef.current = rounded;
-          setProgress(rounded);
-          setSlideIndex(Math.round(slidePosition));
-          onProgressChange(rounded);
-        }
-
-        if (video && now - lastSeekRef.current > 45) {
-          const duration =
-            Number.isFinite(video.duration) && video.duration > 0
-              ? video.duration
-              : FALLBACK_DURATION;
-          const target = mobileProgressToTime(nextProgress, duration);
-
-          if (Math.abs(video.currentTime - target) > 0.045) {
-            lastSeekRef.current = now;
-            video.currentTime = target;
-          }
-        }
+        applyProgress(nextProgress);
+        setSlideIndex(Math.round(slidePosition));
       }
-
-      frameId = window.requestAnimationFrame(tick);
     };
 
-    const queueSnap = () => {
+    const handleScroll = () => {
+      if (isSnappingRef.current) {
+        return;
+      }
+
+      if (!frameId) {
+        frameId = window.requestAnimationFrame(update);
+      }
+
       if (snapTimerRef.current) {
         window.clearTimeout(snapTimerRef.current);
       }
@@ -211,14 +197,14 @@ function useMobileSlideProgress(
       snapTimerRef.current = window.setTimeout(snapToNearest, MOBILE_SNAP_DELAY);
     };
 
-    frameId = window.requestAnimationFrame(tick);
-    window.addEventListener('scroll', queueSnap, { passive: true });
-    window.addEventListener('touchend', snapToNearest, { passive: true });
+    frameId = window.requestAnimationFrame(update);
+    window.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
-      window.cancelAnimationFrame(frameId);
-      window.removeEventListener('scroll', queueSnap);
-      window.removeEventListener('touchend', snapToNearest);
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+      window.removeEventListener('scroll', handleScroll);
 
       if (snapTimerRef.current) {
         window.clearTimeout(snapTimerRef.current);
@@ -228,7 +214,7 @@ function useMobileSlideProgress(
         window.cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [disabled, onProgressChange, snapToNearest, videoRef, wrapperRef]);
+  }, [applyProgress, disabled, snapToNearest, wrapperRef]);
 
   return { progress, slideIndex, scrollToSlide };
 }
@@ -275,14 +261,12 @@ function MobileScrollytellingHero({
           onCanPlay={markReady}
         />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,transparent_0,rgba(0,0,0,0.08)_58%,rgba(0,0,0,0.38)_100%)]" />
-        <div className="film-grain" aria-hidden="true" />
-
         <HeroDay progress={progress} />
         <HeroDusk progress={progress} />
         <HeroFinal progress={progress} />
         <VideoLoader ready={videoReady} />
 
-        <div className="pointer-events-auto absolute right-5 top-1/2 z-[70] flex -translate-y-1/2 flex-col gap-2">
+        <div className="pointer-events-auto absolute bottom-[19%] right-3 z-[70] flex flex-col gap-2">
           <button
             type="button"
             className="flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/40 text-white shadow-[0_18px_45px_-24px_rgba(0,0,0,0.85)] backdrop-blur-md transition-colors active:bg-white/15"
@@ -316,14 +300,14 @@ export default function ScrollytellingHero({
   const wrapperRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const touchOptimized = useTouchOptimized();
-  const lenisRef = useLenis(reducedMotion);
+  const lenisRef = useLenis(reducedMotion || touchOptimized);
   const [videoReady, setVideoReady] = useState(false);
 
   const progress = useVideoScrub({
     wrapperRef,
     videoRef,
     lenisRef,
-    disabled: reducedMotion,
+    disabled: reducedMotion || touchOptimized,
     onProgressChange,
   });
 
