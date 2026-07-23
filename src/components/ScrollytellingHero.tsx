@@ -263,7 +263,7 @@ function MobileScrollytellingHero({
           onCanPlay={markReady}
         />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,transparent_0,rgba(0,0,0,0.08)_58%,rgba(0,0,0,0.38)_100%)]" />
-        <HeroDay progress={progress} />
+        <HeroDay progress={progress} mobile />
         <HeroDusk progress={progress} linger />
         <HeroFinal progress={progress} />
         <VideoLoader ready={videoReady} />

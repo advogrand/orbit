@@ -3,9 +3,10 @@ import { fadeOut } from '../lib/animation';
 
 type HeroDayProps = {
   progress: number;
+  mobile?: boolean;
 };
 
-export default function HeroDay({ progress }: HeroDayProps) {
+export default function HeroDay({ progress, mobile = false }: HeroDayProps) {
   return (
     <div
       className="pointer-events-none absolute inset-0 z-50 text-[#101214]"
@@ -32,7 +33,7 @@ export default function HeroDay({ progress }: HeroDayProps) {
       </div>
 
       <div className="absolute bottom-[7%] left-1/2 flex -translate-x-1/2 flex-col items-center gap-1 rounded-full border border-white/40 bg-white/70 px-5 py-1.5 text-[10px] uppercase tracking-[0.22em] text-black/75 shadow-[0_18px_45px_-24px_rgba(16,18,20,0.65)] backdrop-blur-md">
-        <span>Листайте к ночи</span>
+        <span>{mobile ? 'Нажмите стрелку справа' : 'Листайте к ночи'}</span>
         <ChevronDown className="animate-bounce-slow" size={14} />
       </div>
     </div>
