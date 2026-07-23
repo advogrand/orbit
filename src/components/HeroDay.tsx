@@ -14,7 +14,8 @@ export default function HeroDay({ progress, mobile = false }: HeroDayProps) {
     >
       <div className="absolute inset-x-0 top-[11.5%] px-6 text-center sm:top-[10%] md:top-[11%] lg:top-[8%]">
         <p className="text-[10px] uppercase tracking-[0.28em] text-black/55 md:text-xs">
-          Частная резиденция с обсерваторией
+          Частная резиденция{' '}
+          <span className="whitespace-nowrap">с&nbsp;обсерваторией</span>
         </p>
         <h1 className="mx-auto mt-5 max-w-5xl text-[46px] font-light leading-[0.95] tracking-[-0.045em] sm:text-6xl md:text-7xl lg:text-[88px]">
           Резиденция, созданная
