@@ -32,8 +32,8 @@ export default function HeroDay({ progress, mobile = false }: HeroDayProps) {
         <p className="mt-2">Открыта после заката</p>
       </div>
 
-      <div className="absolute bottom-[7%] left-1/2 flex -translate-x-1/2 flex-col items-center gap-1 rounded-full border border-white/40 bg-white/70 px-5 py-1.5 text-[10px] uppercase tracking-[0.22em] text-black/75 shadow-[0_18px_45px_-24px_rgba(16,18,20,0.65)] backdrop-blur-md">
-        <span>{mobile ? 'Нажмите стрелку справа' : 'Листайте к ночи'}</span>
+      <div className="absolute bottom-[7%] left-1/2 flex w-[260px] -translate-x-1/2 flex-col items-center gap-1 rounded-full border border-white/40 bg-white/70 px-3 py-1.5 text-center text-[10px] uppercase tracking-[0.22em] text-black/75 shadow-[0_18px_45px_-24px_rgba(16,18,20,0.65)] backdrop-blur-md">
+        <span className="whitespace-nowrap">{mobile ? 'Нажмите стрелку справа' : 'Листайте к ночи'}</span>
         <ChevronDown className="animate-bounce-slow" size={14} />
       </div>
     </div>
